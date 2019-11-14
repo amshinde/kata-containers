@@ -19,9 +19,12 @@ jobs:
         with: 
           name: artifact-list 
           path: artifact-list.txt
+
   build-kernel:
     runs-on: ubuntu-16.04
     needs: get-artifact-list
+    env:
+      buildstr: "install_kernel"
     steps:
       - uses: actions/checkout@v1
       - name: get-artifact-list
@@ -32,10 +35,9 @@ jobs:
          sudo apt-get update && sudo apt install -y flex bison libelf-dev bc iptables
       - name: build-kernel
         run: |
-         if grep -q "install_kernel" ./artifact-list/artifact-list.txt; then
-           $GITHUB_WORKSPACE/.github/workflows/generate-artifact-tarball.sh "install_kernel" $GITHUB_REF
+         if grep -q $buildstr ./artifact-list/artifact-list.txt; then
+           $GITHUB_WORKSPACE/.github/workflows/generate-artifact-tarball.sh $buildstr $GITHUB_REF
            echo ::set-env name=artifact-built::true
-           ls -la $GITHUB_WORKSPACE
          else
            echo ::set-env name=artifact-built::false
          fi
@@ -45,3 +47,5 @@ jobs:
         with: 
           name: kata-artifacts
           path: kata-static-kernel.tar.gz
+
+

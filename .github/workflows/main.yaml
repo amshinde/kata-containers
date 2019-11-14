@@ -20,34 +20,24 @@ jobs:
         with: 
           name: artifact-list 
           path: artifact-list.txt
+
   build-kernel:
     runs-on: ubuntu-16.04
     needs: get-artifact-list
     steps:
+      - uses: actions/checkout@v1
       - name: get-artifact-list
         uses: actions/download-artifact@master
         with:
           name: artifact-list
+      - run: |
+         sudo apt-get update && sudo apt install -y flex bison libelf-dev bc iptables
       - name: build-kernel
         run: |
          if grep -q "install_kernel" ./artifact-list/artifact-list.txt; then
-           # install kernel dependencies
-           sudo apt-get update && sudo apt install -y flex bison libelf-dev bc iptables
-           export GOPATH=$HOME/go
-           go get github.com/kata-containers/packaging || true
-           pushd $GOPATH/src/github.com/kata-containers/packaging/release >>/dev/null
-           # Get versions information
-           tag=`echo $GITHUB_REF | cut -d/ -f3-`
-           git checkout $tag
-           pushd ../obs-packaging
-           ./gen_versions_txt.sh $tag
-           popd
-           # Build the kernel:
-           source ./kata-deploy-binaries.sh
-           install_kernel
+           $GITHUB_WORKSPACE/.github/workflows/generate-artifact-tarball.sh "install_kernel" $GITHUB_REF
            echo ::set-env name=artifact-built::true
-           popd >>/dev/null
-           mv $HOME/go/src/github.com/kata-containers/packaging/release/kata-kernel.tar.gz .
+           ls -la $GITHUB_WORKSPACE
          else
            echo ::set-env name=artifact-built::false
          fi
@@ -56,8 +46,36 @@ jobs:
         uses: actions/upload-artifact@master
         with: 
           name: kata-artifacts
-          path: kata-kernel.tar.gz
+          path: kata-static-kernel.tar.gz
   
+  build-experimental-kernel:
+    runs-on: ubuntu-16.04
+    needs: get-artifact-list
+    steps:
+      - uses: actions/checkout@v1
+      - name: get-artifact-list
+        uses: actions/download-artifact@master
+        with:
+          name: artifact-list
+      - run: |
+         sudo apt-get update && sudo apt install -y flex bison libelf-dev bc iptables
+      - name: build-experimental-kernel
+        run: |
+         if grep -q "install_experimental_kernel" ./artifact-list/artifact-list.txt; then
+           $GITHUB_WORKSPACE/.github/workflows/generate-artifact-tarball.sh "install_experimental_kernel" $GITHUB_REF
+           echo ::set-env name=artifact-built::true
+           ls -la $GITHUB_WORKSPACE
+         else
+           echo ::set-env name=artifact-built::false
+         fi
+      - name: store-artifacts
+        if: env.artifact-built == 'true' 
+        uses: actions/upload-artifact@master
+        with: 
+          name: kata-artifacts
+          path: kata-static-kernel.tar.gz
+
+
   build-experimental-kernel:
     runs-on: ubuntu-16.04
     needs: get-artifact-list
