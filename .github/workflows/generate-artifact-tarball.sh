@@ -48,13 +48,15 @@ main() {
         ls -la
         source ./kata-deploy-binaries.sh
 	${artifact_stage}
+        echo "Directory contents after building artifact"
+	ls -la
         #touch kata-static-${artifact}.tar.gz
-	echo "Dir while doing final pop:" $(pwd)
+	#echo "Dir while doing final pop:" $(pwd)
         popd		
 
 	echo "Done installing"
+        echo "Contents after install" && ls -la
 	echo PWD, should be top dir: $(pwd)
-        ls -la
 	#mv $HOME/go/src/github.com/kata-containers/packaging/release/kata-kernel.tar.gz .
 	mv $HOME/go/src/github.com/amshinde/kata-packaging/release/kata-static-${artifact}.tar.gz .
 }
