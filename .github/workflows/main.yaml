@@ -1,7 +1,7 @@
-#on: 
-#  push: 
-#    tags:
-#     - '*'
+on: 
+  push: 
+    tags:
+     - '*'
 
 jobs:
   get-artifact-list:
@@ -9,7 +9,7 @@ jobs:
     steps:
       - name: get the list
         run: |
-         git clone https://github.com/kata-containers/packaging
+         git clone https://github.com/amshinde/kata-packaging kata-packaging
          pushd kata-packaging
          tag=`echo $GITHUB_REF | cut -d/ -f3-`
          git checkout $tag
@@ -24,6 +24,8 @@ jobs:
   build-kernel:
     runs-on: ubuntu-16.04
     needs: get-artifact-list
+    env:
+      buildstr: "install_kernel"
     steps:
       - uses: actions/checkout@v1
       - name: get-artifact-list
@@ -34,10 +36,9 @@ jobs:
          sudo apt-get update && sudo apt install -y flex bison libelf-dev bc iptables
       - name: build-kernel
         run: |
-         if grep -q "install_kernel" ./artifact-list/artifact-list.txt; then
-           $GITHUB_WORKSPACE/.github/workflows/generate-artifact-tarball.sh "install_kernel" $GITHUB_REF
+         if grep -q $buildstr ./artifact-list/artifact-list.txt; then
+           $GITHUB_WORKSPACE/.github/workflows/generate-artifact-tarball.sh $buildstr $GITHUB_REF
            echo ::set-env name=artifact-built::true
-           ls -la $GITHUB_WORKSPACE
          else
            echo ::set-env name=artifact-built::false
          fi
@@ -47,10 +48,12 @@ jobs:
         with: 
           name: kata-artifacts
           path: kata-static-kernel.tar.gz
-  
+
   build-experimental-kernel:
     runs-on: ubuntu-16.04
     needs: get-artifact-list
+    env:
+      buildstr: "install_experimental_kernel"
     steps:
       - uses: actions/checkout@v1
       - name: get-artifact-list
@@ -61,10 +64,9 @@ jobs:
          sudo apt-get update && sudo apt install -y flex bison libelf-dev bc iptables
       - name: build-experimental-kernel
         run: |
-         if grep -q "install_experimental_kernel" ./artifact-list/artifact-list.txt; then
-           $GITHUB_WORKSPACE/.github/workflows/generate-artifact-tarball.sh "install_experimental_kernel" $GITHUB_REF
+         if grep -q $buildstr ./artifact-list/artifact-list.txt; then
+           $GITHUB_WORKSPACE/.github/workflows/generate-artifact-tarball.sh $buildstr $GITHUB_REF
            echo ::set-env name=artifact-built::true
-           ls -la $GITHUB_WORKSPACE
          else
            echo ::set-env name=artifact-built::false
          fi
@@ -73,70 +75,24 @@ jobs:
         uses: actions/upload-artifact@master
         with: 
           name: kata-artifacts
-          path: kata-static-kernel.tar.gz
+          path: kata-static-experimental-kernel.tar.gz
 
-
-  build-experimental-kernel:
-    runs-on: ubuntu-16.04
-    needs: get-artifact-list
-    steps:
-      - name: get-artifact-list
-        uses: actions/download-artifact@master
-        with:
-          name: artifact-list
-      - name: build-experimental-kernel
-        run: |
-         if grep -q "install_experimental_kernel" ./artifact-list/artifact-list.txt; then
-           # install kernel dependencies
-           sudo apt-get update && sudo apt install -y flex bison libelf-dev bc iptables
-           export GOPATH=$HOME/go
-           go get github.com/kata-containers/packaging || true
-           pushd $GOPATH/src/github.com/kata-containers/packaging/release >>/dev/null
-           # Get versions information
-           tag=`echo $GITHUB_REF | cut -d/ -f3-`
-           git checkout $tag
-           ../obs-packaging/gen_versions_txt.sh $tag
-           # Build the kernel:
-           source ./kata-deploy-binaries.sh
-           install_experimental_kernel
-           echo ::set-env name=artifact-built::true
-           popd >>/dev/null
-           mv $HOME/go/src/github.com/kata-containers/packaging/release/kata-kernel-experimental.tar.gz .
-         else
-           echo ::set-env name=artifact-built::false
-         fi
-      - name: store-artifacts
-        if: env.artifact-built == 'true' 
-        uses: actions/upload-artifact@master
-        with: 
-          name: kata-artifacts
-          path: kata-kernel-experimental.tar.gz
-
-  # Job for building the QEMU binaries
   build-qemu:
     runs-on: ubuntu-16.04
     needs: get-artifact-list
+    env:
+      buildstr: "install_qemu"
     steps:
+      - uses: actions/checkout@v1
       - name: get-artifact-list
         uses: actions/download-artifact@master
         with:
           name: artifact-list
       - name: build-qemu
         run: |
-         if grep -q "install_qemu" ./artifact-list/artifact-list.txt; then
-           export GOPATH=$HOME/go
-           go get github.com/kata-containers/packaging || true
-           pushd $GOPATH/src/github.com/kata-containers/packaging/release >>/dev/null
-           # Get versions information
-           tag=`echo $GITHUB_REF | cut -d/ -f3-`
-           git checkout $tag
-           ../obs-packaging/gen_versions_txt.sh $tag
-           # Build the VMM:
-           source ./kata-deploy-binaries.sh
-           install_qemu
+         if grep -q $buildstr ./artifact-list/artifact-list.txt; then
+           $GITHUB_WORKSPACE/.github/workflows/generate-artifact-tarball.sh $buildstr $GITHUB_REF
            echo ::set-env name=artifact-built::true
-           popd >>/dev/null
-           mv $HOME/go/src/github.com/kata-containers/packaging/release/kata-qemu-static.tar.gz .
          else
            echo ::set-env name=artifact-built::false
          fi
@@ -145,33 +101,25 @@ jobs:
         uses: actions/upload-artifact@master
         with: 
           name: kata-artifacts
-          path: kata-qemu-static.tar.gz
-  
+          path: kata-static-qemu.tar.gz
+ 
   # Job for building the QEMU binaries with virtiofs support
   build-qemu-virtiofsd:
     runs-on: ubuntu-16.04
     needs: get-artifact-list
+    env:
+      buildstr: "install_qemu_virtiofsd"
     steps:
+      - uses: actions/checkout@v1
       - name: get-artifact-list
         uses: actions/download-artifact@master
         with:
           name: artifact-list
       - name: build-qemu-virtiofsd
         run: |
-         if grep -q "install_qemu_virtiofsd" ./artifact-list/artifact-list.txt; then
-           export GOPATH=$HOME/go
-           go get github.com/kata-containers/packaging || true
-           pushd $GOPATH/src/github.com/kata-containers/packaging/release >>/dev/null
-           # Get versions information
-           tag=`echo $GITHUB_REF | cut -d/ -f3-`
-           git checkout $tag
-           ../obs-packaging/gen_versions_txt.sh $tag
-           # Build the VMM:
-           source ./kata-deploy-binaries.sh
-           install_qemu_virtiofsd
+         if grep -q $buildstr ./artifact-list/artifact-list.txt; then
+           $GITHUB_WORKSPACE/.github/workflows/generate-artifact-tarball.sh $buildstr $GITHUB_REF
            echo ::set-env name=artifact-built::true
-           popd >>/dev/null
-           mv $HOME/go/src/github.com/kata-containers/packaging/release/kata-qemu-virtiofs-static.tar.gz .
          else
            echo ::set-env name=artifact-built::false
          fi
@@ -180,35 +128,25 @@ jobs:
         uses: actions/upload-artifact@master
         with: 
           name: kata-artifacts
-          path: kata-qemu-virtiofs-static.tar.gz
-
+          path: kata-static-qemu-virtiofsd.tar.gz
+  
   # Job for building the image
   build-image:
     runs-on: ubuntu-16.04
     needs: get-artifact-list
+    env:
+      buildstr: "install_image"
     steps:
+      - uses: actions/checkout@v1
       - name: get-artifact-list
         uses: actions/download-artifact@master
         with:
           name: artifact-list
       - name: build-image
         run: |
-         if grep -q "install_image" ./artifact-list/artifact-list.txt; then
-           export GOPATH=$HOME/go
-           go get github.com/kata-containers/packaging || true
-           pushd $GOPATH/src/github.com/kata-containers/packaging/release >>/dev/null
-           # Get versions information
-           tag=`echo $GITHUB_REF | cut -d/ -f3-`
-           git checkout $tag
-           pushd ../obs-packaging
-           ./gen_versions_txt.sh $tag
-           popd
-           # Build the VMM:
-           source ./kata-deploy-binaries.sh
-           install_image $tag
+         if grep -q $buildstr ./artifact-list/artifact-list.txt; then
+           $GITHUB_WORKSPACE/.github/workflows/generate-artifact-tarball.sh $buildstr $GITHUB_REF
            echo ::set-env name=artifact-built::true
-           popd >>/dev/null
-           mv $HOME/go/src/github.com/kata-containers/packaging/release/kata-image.tar.gz .
          else
            echo ::set-env name=artifact-built::false
          fi
@@ -217,33 +155,25 @@ jobs:
         uses: actions/upload-artifact@master
         with: 
           name: kata-artifacts
-          path: kata-image.tar.gz
- 
+          path: kata-static-image.tar.gz
+
   # Job for building firecracker hypervisor
   build-firecracker:
     runs-on: ubuntu-16.04
     needs: get-artifact-list
+    env:
+      buildstr: "install_firecracker"
     steps:
+      - uses: actions/checkout@v1
       - name: get-artifact-list
         uses: actions/download-artifact@master
         with:
           name: artifact-list
       - name: build-firecracker
         run: |
-         if grep -q "install_firecracker" ./artifact-list/artifact-list.txt; then
-           export GOPATH=$HOME/go
-           go get github.com/kata-containers/packaging || true
-           pushd $GOPATH/src/github.com/kata-containers/packaging/release >>/dev/null
-           # Get versions information
-           tag=`echo $GITHUB_REF | cut -d/ -f3-`
-           git checkout $tag
-           ../obs-packaging/gen_versions_txt.sh $tag
-           # Build the VMM:
-           source ./kata-deploy-binaries.sh
-           install_firecracker
+         if grep -q $buildstr ./artifact-list/artifact-list.txt; then
+           $GITHUB_WORKSPACE/.github/workflows/generate-artifact-tarball.sh $buildstr $GITHUB_REF
            echo ::set-env name=artifact-built::true
-           popd >>/dev/null
-           mv $HOME/go/src/github.com/kata-containers/packaging/release/kata-firecracker-static.tar.gz .
          else
            echo ::set-env name=artifact-built::false
          fi
@@ -252,33 +182,25 @@ jobs:
         uses: actions/upload-artifact@master
         with: 
           name: kata-artifacts
-          path: kata-firecracker-static.tar.gz
-  
+          path: kata-static-firecracker.tar.gz
+
   # Job for building kata components
   build-kata-components:
     runs-on: ubuntu-16.04
     needs: get-artifact-list
+    env:
+      buildstr: "install_kata_components"
     steps:
+      - uses: actions/checkout@v1
       - name: get-artifact-list
         uses: actions/download-artifact@master
         with:
           name: artifact-list
       - name: build-kata-components
         run: |
-         if grep -q "install_kata_components" ./artifact-list/artifact-list.txt; then
-           export GOPATH=$HOME/go
-           go get github.com/kata-containers/packaging || true
-           pushd $GOPATH/src/github.com/kata-containers/packaging/release >>/dev/null
-           # Get versions information
-           tag=`echo $GITHUB_REF | cut -d/ -f3-`
-           git checkout $tag
-           ../obs-packaging/gen_versions_txt.sh $tag
-           # Build the VMM:
-           source ./kata-deploy-binaries.sh
-           install_kata_components $tag
+         if grep -q $buildstr ./artifact-list/artifact-list.txt; then
+           $GITHUB_WORKSPACE/.github/workflows/generate-artifact-tarball.sh $buildstr $GITHUB_REF
            echo ::set-env name=artifact-built::true
-           popd >>/dev/null
-           mv $HOME/go/src/github.com/kata-containers/packaging/release/kata-components.tar.gz .
          else
            echo ::set-env name=artifact-built::false
          fi
@@ -287,7 +209,7 @@ jobs:
         uses: actions/upload-artifact@master
         with: 
           name: kata-artifacts
-          path: kata-components.tar.gz
+          path: kata-static-components.tar.gz
 
   gather-artifacts:
     runs-on: ubuntu-16.04
@@ -321,72 +243,3 @@ jobs:
         with: 
           name: release-candidate
           path: kata-static.tar.xz 
-
-  kata-deploy:
-    needs: gather-artifacts
-    runs-on: ubuntu-latest
-    steps:
-      - name: get-artifacts
-        uses: actions/download-artifact@master
-        with:
-          name: release-candidate
-      - name: build-and-push-kata-deploy-ci
-        run: |
-          tag=`echo $GITHUB_REF | cut -d/ -f3-`
-          git clone https://github.com/kata-containers/packaging
-          pushd kata-packaging
-          git checkout $tag
-          pkg_sha=$(git rev-parse HEAD)
-          popd
-          mv release-candidate/kata-static.tar.xz ./kata-packaging/kata-deploy/kata-static.tar.xz
-          docker build --build-arg KATA_ARTIFACTS=kata-static.tar.xz -t katadocker/kata-deploy-ci:$pkg_sha ./kata-packaging/kata-deploy
-          docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
-          docker push katadocker/kata-deploy-ci:$pkg_sha
-          echo ::set-env name=PKG_SHA::$pkg_sha
-          echo ::set-env name=TAG::$tag
-      - name: test-kata-deploy-ci-in-aks
-        uses: ./kata-packaging/kata-deploy/action
-        with:
-          packaging-sha: env.PKG_SHA
-        env: 
-          PKG_SHA: ${{ env.PKG_SHA }}
-          AZ_APPID: ${{ secrets.AZ_APPID }}
-          AZ_PASSWORD: ${{ secrets.AZ_PASSWORD }}
-          AZ_SUBSCRIPTION_ID: ${{ secrets.AZ_SUBSCRIPTION_ID }}
-          AZ_TENANT_ID: ${{ secrets.AZ_TENANT_ID }}
-      - name: push-tarball
-        run: | 
-          # tag the container image we created and push to DockerHub
-          docker tag katadocker/kata-deploy-ci:${{ env.PKG_SHA }} katadocker/kata-deploy:${{ env.TAG }}
-          docker push katadocker/kata-deploy:${{ env.TAG }}
-
-upload-static-tarball:
-    needs: gather-artifacts
-    needs: kata-deploy
-    runs-on: ubuntu-latest
-    steps:
-      - name: checkout code
-        uses: actions/checkout@master
-      - name: install-go
-        uses: actions/setup-go@v1
-        with:
-          go-version: '1.13.x'
-      - name: get-artifacts
-        uses: actions/download-artifact@master
-        with:
-          name: release-candidate
-      - name: install hub
-        run: |
-                git clone \
-                  --config transfer.fsckobjects=false \
-                  --config receive.fsckobjects=false \
-                  --config fetch.fsckobjects=false \
-                  https://github.com/github/hub.git
-                cd hub
-                sudo make install prefix=/usr/local
-      - name: push static tarball to github
-        run: |
-                tag=`echo $GITHUB_REF | cut -d/ -f3-`
-                git clone https://github.com/kata-containers/runtime.git
-                cd runtime
-                GITHUB_TOKEN=${{ secrets.GIT_UPLOAD_TOKEN }} hub release edit -m "" -a ../release-candidate/kata-static.tar.xz "${tag}"

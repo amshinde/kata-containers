@@ -17,7 +17,7 @@ main() {
 		"Scripts needs artifact name to build"
 		exit 1
 	fi
-	
+
 	github_ref=${2:-}
 	if [ -z "${github_ref}" ]; then
 		"Scripts needs github reference to build"
