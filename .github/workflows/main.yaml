@@ -199,7 +199,7 @@ jobs:
       - name: build-clh
         run: |
          if grep -q $buildstr ./artifact-list/artifact-list.txt; then
-           $GITHUB_WORKSPACE/.github/workflows/generate-artifact-tarball.sh $buildstr
+           nohup $GITHUB_WORKSPACE/.github/workflows/generate-artifact-tarball.sh $buildstr
            echo ::set-env name=artifact-built::true
          else
            echo ::set-env name=artifact-built::false
