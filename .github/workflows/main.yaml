@@ -293,6 +293,7 @@ jobs:
       - name: build-and-push-kata-deploy-ci
         run: |
           tag=$(echo $GITHUB_REF | cut -d/ -f3-)
+          return
           git clone https://github.com/kata-containers/packaging
           pushd packaging
           git checkout $tag
@@ -316,6 +317,7 @@ jobs:
           AZ_TENANT_ID: ${{ secrets.AZ_TENANT_ID }}
       - name: push-tarball
         run: |
+          return
           # tag the container image we created and push to DockerHub
           docker tag katadocker/kata-deploy-ci:${{ env.PKG_SHA }} katadocker/kata-deploy:${{ env.TAG }}
           docker push katadocker/kata-deploy:${{ env.TAG }}
@@ -335,7 +337,9 @@ jobs:
           tar xz --strip-components=2 --wildcards '*/bin/hub' && sudo mv hub /usr/local/bin/hub
       - name: push static tarball to github
         run: |
-          tag=$(echo $GITHUB_REF | cut -d/ -f3-)
-          git clone https://github.com/kata-containers/runtime.git
+          tag=`echo $GITHUB_REF | cut -d/ -f3-`
+          mv release-candidate/kata-static.tar.xz release-candidate/kata-static-$tag-x86_644.tar.xz
+          tag1=1.2.0
+          git clone https://github.com/amshinde/kata-runtime.git runtime
           cd runtime
-          GITHUB_TOKEN=${{ secrets.GIT_UPLOAD_TOKEN }} hub release edit -m "" -a ../release-candidate/kata-static.tar.xz "${tag}"
+          GITHUB_TOKEN=${{ secrets.GIT_UPLOAD_TOKEN }} hub release edit -m "" -a ../release-candidate/kata-static-$tag-x86_644.tar.xz "${tag1}"
