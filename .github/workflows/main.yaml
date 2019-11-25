@@ -321,7 +321,7 @@ jobs:
           docker push katadocker/kata-deploy:${{ env.TAG }}
 
   upload-static-tarball:
-    needs: kata-deploy
+    needs: gather-artifacts
     runs-on: ubuntu-latest
     steps:
       - name: download-artifacts
