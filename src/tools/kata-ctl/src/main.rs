@@ -21,7 +21,7 @@ use ops::check_ops::{
 
 fn real_main() -> Result<()> {
     let args = KataCtlCli::parse();
-
+    drop_privs();
     match args.command {
         Commands::Check(args) => handle_check(args),
         Commands::DirectVolume => handle_check_volume(),
