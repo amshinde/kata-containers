@@ -607,6 +607,13 @@ func (q *qemu) CreateVM(ctx context.Context, id string, network Network, hypervi
 	if q.config.ConfidentialGuest {
 		if q.arch.getProtection() == tdxProtection {
 			knobs.MemFDPrivate = true
+
+			// SMP is currently broken with TDX, and
+			// we must ensure we use something like:
+			// `...,sockets=1,cores=maxvcpus,threads=1,...`
+			smp.Sockets = 1
+			smp.Cores = q.config.NumVCPUs
+			smp.Threads = 1
 		}
 	}
 
