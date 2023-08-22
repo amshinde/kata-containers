@@ -2628,6 +2628,9 @@ type Knobs struct {
 	// MemPrealloc will allocate all the RAM upfront
 	MemPrealloc bool
 
+	// Private Memory FD meant for private memory map/unmap.
+	MemFDPrivate bool
+
 	// FileBackedMem requires Memory.Size and Memory.Path of the VM to
 	// be set.
 	FileBackedMem bool
@@ -2992,7 +2995,20 @@ func (config *Config) appendMemoryKnobs() {
 		return
 	}
 	var objMemParam, numaMemParam string
+
 	dimmName := "dimm1"
+
+	if config.Knobs.MemFDPrivate {
+		objMemParam = "memory-backend-memfd-private,id=" + dimmName + ",size=" + config.Memory.Size
+
+		config.qemuParams = append(config.qemuParams, "-object")
+		config.qemuParams = append(config.qemuParams, objMemParam)
+
+		config.qemuParams = append(config.qemuParams, "-machine")
+		config.qemuParams = append(config.qemuParams, "memory-backend="+dimmName)
+		return
+	}
+
 	if config.Knobs.HugePages {
 		objMemParam = "memory-backend-file,id=" + dimmName + ",size=" + config.Memory.Size + ",mem-path=/dev/hugepages"
 		numaMemParam = "node,memdev=" + dimmName
