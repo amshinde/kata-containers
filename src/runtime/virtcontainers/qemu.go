@@ -604,6 +604,12 @@ func (q *qemu) CreateVM(ctx context.Context, id string, network Network, hypervi
 		return err
 	}
 
+	if q.config.ConfidentialGuest {
+		if q.arch.getProtection() == tdxProtection {
+			knobs.MemFDPrivate = true
+		}
+	}
+
 	kernelPath, err := q.config.KernelAssetPath()
 	if err != nil {
 		return err
