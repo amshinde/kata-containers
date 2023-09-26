@@ -58,7 +58,7 @@ impl Sock for HybridVsock {
 }
 
 async fn connect_helper(uds: &str, port: u32) -> Result<UnixStream> {
-    info!(sl!(), "connect uds {:?} port {}", &uds, port);
+    //info!(sl!(), "connect uds {:?} port {}", &uds, port);
     let mut stream = UnixStream::connect(&uds).await.context("connect")?;
     stream
         .write_all(format!("connect {}\n", port).as_bytes())

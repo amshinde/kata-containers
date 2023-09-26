@@ -18,8 +18,12 @@ use tokio::sync::RwLock;
 #[macro_export]
 macro_rules! sl {
       () => {
-          slog_scope::logger().new(o!("subsystem" => "cloud-hypervisor"))
+          slog_scope::logger().new(o!("subsystem" => "cloud-hypervisorr"))
       };
+
+      //() => {                           
+       // slog_scope::logger()          
+    //};
   }
 
 mod inner;

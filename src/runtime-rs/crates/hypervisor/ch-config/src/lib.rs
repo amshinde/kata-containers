@@ -494,3 +494,14 @@ pub struct NamedHypervisorConfig {
     pub shared_fs_devices: Option<Vec<FsConfig>>,
     pub network_devices: Option<Vec<NetConfig>>,
 }
+
+#[derive(Clone, Deserialize, Serialize, Default, Debug)]
+pub struct VmRemoveDeviceData {
+    #[serde(default)]
+    pub id: String,
+}
+
+pub struct PciDeviceInfo {
+    pub id: String,
+    pub bdf: String, 
+}

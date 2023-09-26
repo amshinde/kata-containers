@@ -41,6 +41,10 @@ const CH_POLL_TIME_MS: u64 = 50;
 
 impl CloudHypervisorInner {
     async fn start_hypervisor(&mut self, timeout_secs: i32) -> Result<()> {
+        info!(
+            sl!(),
+            "###start hypervisor" 
+        );
         self.cloud_hypervisor_launch(timeout_secs)
             .await
             .context("launch failed")?;
@@ -108,6 +112,10 @@ impl CloudHypervisorInner {
 
     async fn boot_vm(&mut self) -> Result<()> {
         let (shared_fs_devices, network_devices) = self.get_shared_devices().await?;
+        info!(
+            sl!(),
+            "###shared network: {:?}, shared fs: {:?}", network_devices, shared_fs_devices
+        );
 
         let socket = self
             .api_socket
@@ -127,9 +135,10 @@ impl CloudHypervisorInner {
             .ok_or("no hypervisor config for CH")
             .map_err(|e| anyhow!(e))?;
 
-        debug!(
+        let logger = sl!().new(o!("subsystem" => "mydebug"));
+        info!(
             sl!(),
-            "generic Hypervisor configuration: {:?}", hypervisor_config
+            "###generic Hypervisor configuration: {:?}", hypervisor_config
         );
 
         let kernel_params = self.get_kernel_params().await?;
@@ -152,14 +161,16 @@ impl CloudHypervisorInner {
 
         let cfg = VmConfig::try_from(named_cfg)?;
 
-        debug!(sl!(), "CH specific VmConfig configuration: {:?}", cfg);
+        info!(logger, "###CH specific VmConfig configuration: {:?}", cfg);
 
-        let response =
+        let response: Option<String> =
             cloud_hypervisor_vm_create(socket.try_clone().context("failed to clone socket")?, cfg)
                 .await?;
 
         if let Some(detail) = response {
-            debug!(sl!(), "vm boot response: {:?}", detail);
+            info!(logger, "###vm boot response: {:?}", detail);
+        } else {
+            info!(sl!(), "###No response received from cloud_hypervisor_vm_create");
         }
 
         let response =
@@ -167,7 +178,7 @@ impl CloudHypervisorInner {
                 .await?;
 
         if let Some(detail) = response {
-            debug!(sl!(), "vm start response: {:?}", detail);
+            info!(logger, "###vm start response: {:?}", detail);
         }
 
         self.state = VmmState::VmRunning;
@@ -328,7 +339,7 @@ impl CloudHypervisorInner {
             cloud_hypervisor_vmm_shutdown(socket.try_clone().context("shutdown failed")?).await?;
 
         if let Some(detail) = response {
-            debug!(sl!(), "shutdown response: {:?}", detail);
+            info!(sl!(), "###shutdown response: {:?}", detail);
         }
 
         // Trigger a controlled shutdown
@@ -398,7 +409,7 @@ impl CloudHypervisorInner {
 
             if let Ok(response) = response {
                 if let Some(detail) = response {
-                    debug!(sl!(), "ping response: {:?}", detail);
+                    debug!(sl!(), "###ping response: {:?}", detail);
                 }
                 break;
             }

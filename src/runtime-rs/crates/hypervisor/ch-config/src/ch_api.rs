@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{DeviceConfig, DiskConfig, FsConfig, VmConfig};
+use crate::{DeviceConfig, DiskConfig, FsConfig, VmConfig, VmRemoveDeviceData};
 use anyhow::{anyhow, Result};
 use api_client::simple_api_full_command_and_response;
 
@@ -87,16 +87,41 @@ pub async fn cloud_hypervisor_vm_blockdev_add(
     .await?
 }
 
-#[allow(dead_code)]
-pub async fn cloud_hypervisor_vm_device_add(mut socket: UnixStream) -> Result<Option<String>> {
-    let device_config = DeviceConfig::default();
 
+//pub struct PciDeviceInfo {
+//    pub id: String,
+//    pub bdf: String, 
+//}
+
+pub async fn cloud_hypervisor_vm_device_add(
+    mut socket: UnixStream,
+    device_config: DeviceConfig,
+) -> Result<Option<String>> {
     task::spawn_blocking(move || -> Result<Option<String>> {
         let response = simple_api_full_command_and_response(
             &mut socket,
             "PUT",
             "vm.add-device",
             Some(&serde_json::to_string(&device_config)?),
+        )
+        .map_err(|e| anyhow!(e))?;
+
+        Ok(response)
+    })
+    .await?
+}
+
+#[allow(dead_code)]
+pub async fn cloud_hypervisor_vm_device_remove(
+    mut socket: UnixStream,
+    device_data: VmRemoveDeviceData,
+) -> Result<Option<String>> {
+    task::spawn_blocking(move || -> Result<Option<String>> {
+        let response = simple_api_full_command_and_response(
+            &mut socket,
+            "PUT",
+            "vm.remove-device",
+            Some(&serde_json::to_string(&device_data)?),
         )
         .map_err(|e| anyhow!(e))?;
 

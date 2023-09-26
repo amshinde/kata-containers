@@ -12,6 +12,7 @@ use kata_types::capabilities::{Capabilities, CapabilityBits};
 use kata_types::config::hypervisor::Hypervisor as HypervisorConfig;
 use kata_types::config::hypervisor::HYPERVISOR_NAME_CH;
 use persist::sandbox_persist::Persist;
+use std::collections::HashMap;
 use std::os::unix::net::UnixStream;
 use tokio::process::Child;
 use tokio::sync::watch::{channel, Receiver, Sender};
@@ -51,6 +52,8 @@ pub struct CloudHypervisorInner {
     pub(crate) shutdown_tx: Option<Sender<bool>>,
     pub(crate) shutdown_rx: Option<Receiver<bool>>,
     pub(crate) tasks: Option<Vec<JoinHandle<Result<()>>>>,
+
+    pub(crate) device_ids: HashMap<String, String>,
 }
 
 const CH_DEFAULT_TIMEOUT_SECS: u32 = 10;
@@ -82,6 +85,7 @@ impl CloudHypervisorInner {
             run_dir: String::default(),
             netns: None,
             pending_devices: vec![],
+            device_ids: HashMap::<String, String>::new(),
             _capabilities: capabilities,
             shutdown_tx: Some(tx),
             shutdown_rx: Some(rx),

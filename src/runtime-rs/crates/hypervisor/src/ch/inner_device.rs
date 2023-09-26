@@ -10,11 +10,13 @@ use crate::BlockConfig;
 use crate::HybridVsockConfig;
 use crate::NetworkConfig;
 use crate::ShareFsDeviceConfig;
+use crate::VfioDevice;
 use crate::VmmState;
 use anyhow::{anyhow, Context, Result};
+use ch_config::ch_api::cloud_hypervisor_vm_device_add;
 use ch_config::ch_api::{cloud_hypervisor_vm_blockdev_add, cloud_hypervisor_vm_fs_add};
 use ch_config::DiskConfig;
-use ch_config::{net_util::MacAddr, FsConfig, NetConfig};
+use ch_config::{net_util::MacAddr, DeviceConfig, FsConfig, NetConfig};
 use safe_path::scoped_join;
 use std::convert::TryFrom;
 use std::path::PathBuf;
@@ -41,6 +43,7 @@ impl CloudHypervisorInner {
             DeviceType::ShareFs(sharefs) => self.handle_share_fs_device(sharefs.config).await,
             DeviceType::HybridVsock(hvsock) => self.handle_hvsock_device(&hvsock.config).await,
             DeviceType::Block(block) => self.handle_block_device(block.config).await,
+            DeviceType::Vfio(vfiodev) => self.handle_vfio_device(&vfiodev).await,
             _ => Err(anyhow!("unhandled device: {:?}", device)),
         }
     }
@@ -68,6 +71,7 @@ impl CloudHypervisorInner {
     }
 
     async fn handle_share_fs_device(&mut self, cfg: ShareFsDeviceConfig) -> Result<()> {
+        info!(sl!(), "###adding share fs : {:?}", cfg);
         if cfg.fs_type != VIRTIO_FS {
             return Err(anyhow!("cannot handle share fs type: {:?}", cfg.fs_type));
         }
@@ -111,13 +115,57 @@ impl CloudHypervisorInner {
         .await?;
 
         if let Some(detail) = response {
-            debug!(sl!(), "fs add response: {:?}", detail);
+            info!(sl!(), "###fs add response: {:?}", detail);
+        } else {
+            info!(sl!(), "###no response from fs add:");
         }
 
         Ok(())
     }
 
     async fn handle_hvsock_device(&mut self, _cfg: &HybridVsockConfig) -> Result<()> {
+        Ok(())
+    }
+
+    async fn handle_vfio_device(&mut self, device: &VfioDevice) -> Result<()> {
+        // A device with multi-funtions, or a IOMMU group with one more
+        // devices, the Primary device is selected to be passed to VM.
+        // And the the first one is Primary device.
+        // safe here, devices is not empty.
+        let primary_device = device.devices.first().unwrap().clone();
+
+        info!(sl!(), "###adding VFIO fs : {:?}", primary_device.clone());
+
+        let sysfsdev = primary_device.sysfs_path.clone();
+
+        let socket = self
+            .api_socket
+            .as_ref()
+            .ok_or("missing socket")
+            .map_err(|e| anyhow!(e))?;
+
+        let device_config = DeviceConfig {
+            path: PathBuf::from(sysfsdev),
+            iommu: false,
+            ..Default::default()
+        };
+
+        let response = cloud_hypervisor_vm_device_add(
+            socket.try_clone().context("failed to clone socket")?,
+            device_config,
+        )
+        .await?;
+
+        if let Some(detail) = response {
+            info!(sl!(), "VFIO add response: {:?}", detail);
+        } else {
+            info!(sl!(), "No response drom VFIO add");
+        }
+
+        //self.device_ids.insert(device.device_id, detail); 
+
+
+
         Ok(())
     }
 
@@ -146,7 +194,9 @@ impl CloudHypervisorInner {
         .await?;
 
         if let Some(detail) = response {
-            debug!(sl!(), "blockdev add response: {:?}", detail);
+            info!(sl!(), "###blockdev add response: {:?}", detail);
+        } else {
+            info!(sl!(), "###no response for blockdev add response");
         }
 
         Ok(())
