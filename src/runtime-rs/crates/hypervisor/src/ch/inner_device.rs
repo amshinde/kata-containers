@@ -6,7 +6,7 @@
 
 use super::inner::CloudHypervisorInner;
 use crate::device::DeviceType;
-use crate::BlockConfig;
+use crate::BlockDevice;
 use crate::HybridVsockConfig;
 use crate::NetworkConfig;
 use crate::ShareFsDeviceConfig;
@@ -14,7 +14,7 @@ use crate::VfioDevice;
 use crate::VmmState;
 use anyhow::{anyhow, Context, Result};
 use ch_config::ch_api::cloud_hypervisor_vm_device_add;
-use ch_config::ch_api::{cloud_hypervisor_vm_blockdev_add, cloud_hypervisor_vm_fs_add};
+use ch_config::ch_api::{cloud_hypervisor_vm_blockdev_add, cloud_hypervisor_vm_fs_add, cloud_hypervisor_vm_device_remove, PciDeviceInfo, VmRemoveDeviceData};
 use ch_config::DiskConfig;
 use ch_config::{net_util::MacAddr, DeviceConfig, FsConfig, NetConfig};
 use safe_path::scoped_join;
@@ -42,7 +42,7 @@ impl CloudHypervisorInner {
         match device {
             DeviceType::ShareFs(sharefs) => self.handle_share_fs_device(sharefs.config).await,
             DeviceType::HybridVsock(hvsock) => self.handle_hvsock_device(&hvsock.config).await,
-            DeviceType::Block(block) => self.handle_block_device(block.config).await,
+            DeviceType::Block(block) => self.handle_block_device(block).await,
             DeviceType::Vfio(vfiodev) => self.handle_vfio_device(&vfiodev).await,
             _ => Err(anyhow!("unhandled device: {:?}", device)),
         }
@@ -67,6 +67,9 @@ impl CloudHypervisorInner {
     }
 
     pub(crate) async fn remove_device(&mut self, _device: DeviceType) -> Result<()> {
+    //    match device {
+    //        DeviceType::Vfio(vfiodev) => self.remove_vfio_device(&vfiodev).await,
+    //    }
         Ok(())
     }
 
@@ -158,18 +161,47 @@ impl CloudHypervisorInner {
 
         if let Some(detail) = response {
             info!(sl!(), "VFIO add response: {:?}", detail);
+            let dev_info:PciDeviceInfo = serde_json::from_str(detail.as_str()).map_err(|e|anyhow!(e))?;
+            self.device_ids.insert(device.device_id.clone(), dev_info.id); 
         } else {
             info!(sl!(), "No response drom VFIO add");
         }
 
-        //self.device_ids.insert(device.device_id, detail); 
+        Ok(())
+    }
 
+    async fn remove_vfio_device(&mut self, device: &VfioDevice) -> Result<()> {
+        let clh_device_id = self.device_ids.get(&device.device_id);
 
+        if clh_device_id.is_none() {
+            anyhow!("Device id for cloud-hypervisor not found while removing device");
+        }
+
+        let socket = self
+            .api_socket
+            .as_ref()
+            .ok_or("missing socket")
+            .map_err(|e| anyhow!(e))?;
+
+        let clh_device_id = clh_device_id.unwrap();
+        let rm_data = VmRemoveDeviceData{
+            id:clh_device_id.clone()
+        };
+
+        let response = cloud_hypervisor_vm_device_remove(
+            socket.try_clone().context("failed to clone socket")?,
+            rm_data,
+        )
+        .await?;
+
+        if let Some(detail) = response {
+            info!(sl!(), "###vfio remove response: {:?}", detail);
+        }
 
         Ok(())
     }
 
-    async fn handle_block_device(&mut self, cfg: BlockConfig) -> Result<()> {
+    async fn handle_block_device(&mut self, device: BlockDevice) -> Result<()> {
         let socket = self
             .api_socket
             .as_ref()
@@ -180,8 +212,8 @@ impl CloudHypervisorInner {
         let queue_size: u16 = DEFAULT_DISK_QUEUE_SIZE;
 
         let block_config = DiskConfig {
-            path: Some(cfg.path_on_host.as_str().into()),
-            readonly: cfg.is_readonly,
+            path: Some(device.config.path_on_host.as_str().into()),
+            readonly: device.config.is_readonly,
             num_queues,
             queue_size,
             ..Default::default()
@@ -195,6 +227,8 @@ impl CloudHypervisorInner {
 
         if let Some(detail) = response {
             info!(sl!(), "###blockdev add response: {:?}", detail);
+            let dev_info:PciDeviceInfo = serde_json::from_str(detail.as_str()).map_err(|e|anyhow!(e))?;
+            self.device_ids.insert(device.device_id, dev_info.id); 
         } else {
             info!(sl!(), "###no response for blockdev add response");
         }

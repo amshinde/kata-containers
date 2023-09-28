@@ -298,7 +298,8 @@ impl ResourceManagerInner {
                     // if driver is virtio-blk-pci, the id will be pci address.
                     if let DeviceType::Block(device) = device_info {
                         let agent_device = Device {
-                            id: device.config.virt_path.clone(),
+                            //id: device.config.virt_path.clone(),
+                            id: device.device_id,
                             container_path: d.path.clone(),
                             field_type: device.config.driver_option,
                             vm_path: device.config.virt_path,

@@ -2,10 +2,11 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{DeviceConfig, DiskConfig, FsConfig, VmConfig, VmRemoveDeviceData};
+use crate::{DeviceConfig, DiskConfig, FsConfig, VmConfig};
 use anyhow::{anyhow, Result};
 use api_client::simple_api_full_command_and_response;
 
+use serde::{Deserialize, Serialize};
 use std::os::unix::net::UnixStream;
 use tokio::task;
 
@@ -68,6 +69,16 @@ pub async fn cloud_hypervisor_vm_stop(mut socket: UnixStream) -> Result<Option<S
     })
     .await?
 }
+#[derive(Serialize, Deserialize)]
+pub struct PciDeviceInfo {
+    pub id: String,
+    pub bdf: String, 
+}
+#[derive(Clone, Deserialize, Serialize, Default, Debug)]
+pub struct VmRemoveDeviceData {
+    #[serde(default)]
+    pub id: String,
+}
 
 pub async fn cloud_hypervisor_vm_blockdev_add(
     mut socket: UnixStream,
@@ -86,12 +97,6 @@ pub async fn cloud_hypervisor_vm_blockdev_add(
     })
     .await?
 }
-
-
-//pub struct PciDeviceInfo {
-//    pub id: String,
-//    pub bdf: String, 
-//}
 
 pub async fn cloud_hypervisor_vm_device_add(
     mut socket: UnixStream,
