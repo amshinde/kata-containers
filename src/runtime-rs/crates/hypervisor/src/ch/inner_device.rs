@@ -43,7 +43,7 @@ impl CloudHypervisorInner {
             DeviceType::ShareFs(sharefs) => self.handle_share_fs_device(sharefs.config).await,
             DeviceType::HybridVsock(hvsock) => self.handle_hvsock_device(&hvsock.config).await,
             DeviceType::Block(block) => self.handle_block_device(block).await,
-            DeviceType::Vfio(vfiodev) => self.handle_vfio_device(&vfiodev).await,
+            DeviceType::Vfio(vfiodev) => self.handle_vfio_device(vfiodev).await,
             _ => Err(anyhow!("unhandled device: {:?}", device)),
         }
     }
@@ -66,11 +66,11 @@ impl CloudHypervisorInner {
         Ok(())
     }
 
-    pub(crate) async fn remove_device(&mut self, _device: DeviceType) -> Result<()> {
-    //    match device {
-    //        DeviceType::Vfio(vfiodev) => self.remove_vfio_device(&vfiodev).await,
-    //    }
-        Ok(())
+    pub(crate) async fn remove_device(&mut self, device: DeviceType) -> Result<()> {
+        match device {
+            DeviceType::Vfio(vfiodev) => self.remove_vfio_device(&vfiodev).await,
+            _ => Ok(())
+        }
     }
 
     async fn handle_share_fs_device(&mut self, cfg: ShareFsDeviceConfig) -> Result<()> {
@@ -130,12 +130,12 @@ impl CloudHypervisorInner {
         Ok(())
     }
 
-    async fn handle_vfio_device(&mut self, device: &VfioDevice) -> Result<()> {
+    async fn handle_vfio_device(&mut self, mut device: VfioDevice) -> Result<()> {
         // A device with multi-funtions, or a IOMMU group with one more
         // devices, the Primary device is selected to be passed to VM.
         // And the the first one is Primary device.
         // safe here, devices is not empty.
-        let primary_device = device.devices.first().unwrap().clone();
+        let  primary_device = device.devices.first().unwrap();
 
         info!(sl!(), "###adding VFIO fs : {:?}", primary_device.clone());
 
@@ -163,6 +163,7 @@ impl CloudHypervisorInner {
             info!(sl!(), "VFIO add response: {:?}", detail);
             let dev_info:PciDeviceInfo = serde_json::from_str(detail.as_str()).map_err(|e|anyhow!(e))?;
             self.device_ids.insert(device.device_id.clone(), dev_info.id); 
+            device.device_options.push(dev_info.bdf.clone());
         } else {
             info!(sl!(), "No response drom VFIO add");
         }
@@ -174,7 +175,7 @@ impl CloudHypervisorInner {
         let clh_device_id = self.device_ids.get(&device.device_id);
 
         if clh_device_id.is_none() {
-            anyhow!("Device id for cloud-hypervisor not found while removing device");
+            return Err(anyhow!("Device id for cloud-hypervisor not found while removing device"));
         }
 
         let socket = self

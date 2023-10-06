@@ -49,6 +49,7 @@ lazy_static! {
 
 // map host/guest bdf and the mapping saved into `HOST_GUEST_MAP`,
 // and return PciPath.
+#[allow(dead_code)]
 pub fn generate_guest_pci_path(bdf: String) -> Result<PciPath> {
     let hg_map = HOST_GUEST_MAP.clone();
     let current_id = GUEST_DEVICE_ID.clone();
@@ -389,7 +390,8 @@ impl VfioDevice {
             .get_vfio_device_vendor(&dev_bdf)
             .context("get property device and vendor failed")?;
 
-        let mut vfio_dev = HostDevice {
+        //let mut vfio_dev = HostDevice {
+        let vfio_dev = HostDevice {
             bus_slot_func: dev_bdf.clone(),
             device_vendor: Some(dev_vendor),
             sysfs_path: vfio_dev_details.1,
@@ -402,11 +404,11 @@ impl VfioDevice {
         // DDDD:BB:DD.F is the device's PCI address on host
         // <pcipath> is the device's PCI path in the guest
         if self.bus_mode == VfioBusMode::PCI {
-            let pci_path =
-                generate_guest_pci_path(dev_bdf.clone()).context("generate pci path failed")?;
-            vfio_dev.guest_pci_path = Some(pci_path.clone());
-            self.device_options
-                .push(format!("0000:{}={}", dev_bdf, pci_path.convert_to_string()));
+            //let pci_path =
+            //    generate_guest_pci_path(dev_bdf.clone()).context("generate pci path failed")?;
+            //vfio_dev.guest_pci_path = Some(pci_path.clone());
+            //self.device_options
+            //    .push(format!("0000:{}={}", dev_bdf, pci_path.convert_to_string()));
         }
 
         Ok(vfio_dev)
