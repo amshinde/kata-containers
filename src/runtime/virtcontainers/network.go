@@ -50,6 +50,7 @@ func getNetworkTrace(networkType EndpointType) func(ctx context.Context, name st
 	}
 }
 
+// Addition for testing
 func closeSpan(span trace.Span, err error) {
 	if err != nil {
 		katatrace.AddTags(span, "error", err.Error())
